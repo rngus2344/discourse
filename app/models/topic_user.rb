@@ -372,20 +372,15 @@ class TopicUser < ActiveRecord::Base
 
   end
 
-  def self.update_post_action_cache(opts = {})
-    user_id = opts[:user_id]
-    post_id = opts[:post_id]
-    topic_id = opts[:topic_id]
-    action_type = opts[:post_action_type]
-
-    action_type_name = "liked" if action_type == :like
-
-    raise ArgumentError, "action_type" if action_type && !action_type_name
-
-    unless action_type_name
-      update_post_action_cache(opts.merge(post_action_type: :like))
-      return
-    end
+  def self.update_post_action_cache(
+    user_id: nil,
+    post_id: nil,
+    topic_id: nil,
+    post_action_type: :like,
+    following_move: false
+  )
+    raise ArgumentError, "post_action_type" if post_action_type != :like
+    action_type_name = "liked"
 
     builder = DB.build <<~SQL
       UPDATE topic_users tu
@@ -411,21 +406,21 @@ class TopicUser < ActiveRecord::Base
     SQL
 
     if user_id
-      builder.where("tu2.user_id = :user_id", user_id: user_id)
+      builder.where("tu2.user_id IN (:user_id)", user_id: user_id)
     end
 
     if topic_id
-      builder.where("tu2.topic_id = :topic_id", topic_id: topic_id)
+      builder.where("tu2.topic_id IN (:topic_id)", topic_id: topic_id)
     end
 
     if post_id
-      builder.where("tu2.topic_id IN (SELECT topic_id FROM posts WHERE id = :post_id)", post_id: post_id)
+      builder.where("tu2.topic_id IN (SELECT topic_id FROM posts WHERE id IN (:post_id))", post_id: post_id) if !following_move
       builder.where("tu2.user_id IN (SELECT user_id FROM post_actions
-                                     WHERE post_id = :post_id AND
-                                           post_action_type_id = :action_type_id)")
+                                     WHERE post_id IN (:post_id) AND
+                                           post_action_type_id = :action_type_id)", post_id: post_id)
     end
 
-    builder.exec(action_type_id: PostActionType.types[action_type])
+    builder.exec(action_type_id: PostActionType.types[post_action_type])
   end
 
   # cap number of unread topics at count, bumping up last_read if needed
