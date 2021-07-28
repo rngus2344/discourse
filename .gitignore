@@ -34,6 +34,7 @@
 # Plugins except for the bundled ones
 /plugins/*
 !/plugins/discourse-details/
+!/plugins/discourse-data-explorer/
 !/plugins/discourse-local-dates
 !/plugins/discourse-narrative-bot
 !/plugins/discourse-presence
